@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Misión: Ecos del Tiempo (V3.2 Final)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Exo+2:wght300;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-pink: #ff00aa;
+            --glass-bg: rgba(10, 20, 40, 0.9);
+            --keypad-color: #00f3ff;
+            --success-color: #3cb371;
+            --error-color: #ff4500;
+        }
+
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #000; 
+            font-family: 'Exo 2', sans-serif; 
+            cursor: url('https://i.imgur.com/Q2y1yL2.png'), auto; 
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        @media (pointer: coarse) {
+            body {
+                cursor: default;
+            }
+        }
+
+        #hud {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; 
+            z-index: 10;
+        }
+        .scanlines {
+            background: linear-gradient(to bottom, transparent 50%, rgba(0,243,255,0.05) 51%);
+            background-size: 100% 4px;
+            position: absolute; width: 100%; height: 100%; pointer-events: none;
+        }
+        header {
+            position: absolute; top: 20px; left: 20px; 
+            color: var(--neon-blue);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            pointer-events: none;
+            font-size: clamp(0.9rem, 2vw + 0.5rem, 1.8rem);
+        }
+        h1 { font-family: 'Orbitron'; margin: 0; text-shadow: 0 0 10px rgba(0,243,255,0.5); }
+        .subtitle { font-size: 0.8em; opacity: 0.8; } 
+
+        #mission-modal {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            opacity: 0;
+            width: 95%; 
+            max-width: 600px; 
+            height: auto; 
+            max-height: 95vh; 
+            overflow-y: auto; 
+            
+            padding: clamp(20px, 5vw, 30px);
+
+            background: var(--glass-bg);
+            border: 2px solid var(--neon-blue);
+            box-shadow: 0 0 30px rgba(0,243,255,0.2), inset 0 0 20px rgba(0,243,255,0.1);
+            color: white;
+            pointer-events: none; 
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 20;
+            box-sizing: border-box; 
+        }
+
+        #mission-modal.active {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .planet-title { 
+            font-family: 'Orbitron'; color: var(--neon-blue); margin-bottom: 20px; 
+            font-size: clamp(1.1rem, 5vw, 1.5rem); 
+            text-align: center;
+        }
+        
+        #revealed-memory {
+            opacity: 0;
+            transition: opacity 1s ease-in;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #revealed-memory.active {
+            opacity: 1;
+        }
+
+        .memory-image-container {
+            width: 100%; 
+            max-height: clamp(150px, 30vh, 300px); 
+            overflow: hidden; border-radius: 8px;
+            border: 2px solid var(--neon-pink); box-shadow: 0 0 15px var(--neon-pink);
+            margin-bottom: 20px;
+        }
+        
+        #modal-image { width: 100%; height: 100%; object-fit: cover; display: block; }
+        #modal-desc { 
+            line-height: 1.6; text-align: center; margin-bottom: 25px; 
+            font-size: clamp(0.9rem, 2vw + 0.5rem, 1.1rem); 
+            max-width: 100%;
+        }
+
+        .btn {
+            background: transparent; border: 2px solid var(--neon-blue); color: var(--neon-blue);
+            padding: 10px 25px; 
+            cursor: pointer; font-family: 'Orbitron'; 
+            font-size: clamp(0.75rem, 4vw, 1rem); 
+            transition: 0.3s; text-transform: uppercase; letter-spacing: 1px; margin-top: 15px;
+            min-width: 150px; 
+        }
+        .btn:hover { background: var(--neon-blue); color: #000; box-shadow: 0 0 20px var(--neon-blue); }
+
+        #keypad-puzzle {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px; 
+            width: 100%;
+            max-width: 300px;
+            transition: opacity 0.5s;
+        }
+
+        #code-display {
+            font-family: 'Orbitron';
+            font-size: clamp(1.5rem, 6vw, 2rem); 
+            letter-spacing: 5px;
+            color: var(--keypad-color);
+            border-bottom: 2px solid var(--keypad-color);
+            padding-bottom: 5px;
+            min-height: 30px;
+            width: 100%;
+            text-align: center;
+        }
+
+        #keypad-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px; 
+            width: 100%;
+        }
+
+        .key-btn {
+            background: rgba(0, 243, 255, 0.1);
+            color: var(--keypad-color);
+            border: 1px solid var(--keypad-color);
+            padding: 18px; 
+            font-family: 'Orbitron';
+            font-size: clamp(1rem, 4vw, 1.2rem); 
+            cursor: pointer;
+            transition: background 0.2s, box-shadow 0.2s;
+        }
+        .key-btn:hover {
+            background: rgba(0, 243, 255, 0.3);
+            box-shadow: 0 0 10px var(--keypad-color);
+        }
+        .key-btn.action {
+            color: var(--neon-pink);
+            border-color: var(--neon-pink);
+        }
+        .key-btn.action:hover {
+              background: rgba(255, 0, 170, 0.3);
+              box-shadow: 0 0 10px var(--neon-pink);
+        }
+
+        #hint-text {
+            color: white;
+            opacity: 0.8;
+            text-align: center;
+            font-size: clamp(0.75rem, 3vw, 0.9rem); 
+        }
+
+        #keypad-puzzle.error #code-display {
+            color: var(--error-color);
+            animation: shake 0.5s;
+        }
+
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            20% { transform: translateX(-10px); }
+            40% { transform: translateX(10px); }
+            60% { transform: translateX(-10px); }
+            80% { transform: translateX(10px); }
+            100% { transform: translateX(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="hud">
+        <div class="scanlines"></div>
+        <header>
+            <div class="subtitle">Sistema de Navegación Estelar</div>
+            <h1>Bitácora de 6 Meses</h1>
+        </header>
+    </div>
+
+   <audio id="background-music" loop preload="auto">
+        <source src="./music/song.mp3" type="audio/mpeg">
+        Tu navegador no soporta el elemento de audio.
+    </audio>
+
+    <div id="mission-modal">
+        <h2 class="planet-title" id="modal-title">Cargando datos...</h2>
+        
+        <div id="keypad-puzzle" style="display: none;">
+            <p id="hint-text">CÓDIGO REQUERIDO: Ingresa la **fecha (Día y Mes) y año (solo 2 dígitos)** de nuestro **primer 'Hola'**.</p>
+            <div id="code-display"></div>
+            <div id="keypad-container">
+                <button class="key-btn" data-key="1">1</button>
+                <button class="key-btn" data-key="2">2</button>
+                <button class="key-btn" data-key="3">3</button>
+                <button class="key-btn" data-key="4">4</button>
+                <button class="key-btn" data-key="5">5</button>
+                <button class="key-btn" data-key="6">6</button>
+                <button class="key-btn" data-key="7">7</button>
+                <button class="key-btn" data-key="8">8</button>
+                <button class="key-btn" data-key="9">9</button>
+                <button class="key-btn action" data-key="clear">CLR</button>
+                <button class="key-btn" data-key="0">0</button>
+                <button class="key-btn action" data-key="enter">ENTER</button>
+            </div>
+        </div>
+
+        <div id="revealed-memory">
+            <div class="memory-image-container">
+                 <img id="modal-image" src="" alt="Memoria visual no encontrada">
+            </div>
+            <p id="modal-desc">...</p>
+        </div>
+        
+        <button class="btn" id="close-modal">Cerrar Transmisión</button>
+    </div>
+
+    <div id="world"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.7.1/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+    <script>
+        const missionData = [
+            { 
+                id: 0, 
+                name: "Mes 1: Origen Cósmico ✨", 
+                color: 0xff4500, 
+                image: "./image/img1.png", 
+                desc: "Tu primer 'wenas wenas' fue la primera explosión estelar. El universo me estaba preparando para encontrarte, y esa primera conversación confirmó que nuestra conexión no tiene fronteras. ¡Te amo desde el primer mensaje! 💖", 
+                pos: {x: -10, y: 5, z: -8}, 
+                isPuzzle: true, 
+                secretCode: "150125"
+            }, 
+            { 
+                id: 1, 
+                name: "Mes 2: La Nebulosa de los Sueños 🌌", 
+                color: 0x00bfff, 
+                image: "./image/img2.png", 
+                desc: "Cada noche que pasamos hablando, compartiendo nuestros sueños y risas, construyó nuestro pequeño puente de luz a través de la distancia. Eres mi estrella polar, la que guía mi camino. 🌟", 
+                pos: {x: -5, y: -8, z: -15} 
+            },
+            { 
+                id: 2, 
+                name: "Mes 3: La Constelación de la Voz 📞", 
+                color: 0x8a2be2, 
+                image: "./image/img3.png", 
+                desc: "Tus palabras se convirtieron en mi lugar seguro. No hay distancia que nuestra voz no pueda cruzar. En cada nota de tu risa y cada 'te amo', siento tu presencia más cerca que la de nadie más. Eres mi melodía favorita. 🎶", 
+                pos: {x: 0, y: 12, z: -20} 
+            },
+            { 
+                id: 3, 
+                name: "Mes 4: El Mapa de la Promesa 🗺️", 
+                color: 0x3cb371, 
+                image: "./image/img4.png", 
+                desc: "Empezar a planear nuestro encuentro, a imaginar cada detalle de ese futuro juntos, ha sido la aventura más hermosa. Cada foto que me envías es un 'punto de interés' en el mapa de nuestro destino. Siempre hacia ti. 🧭", 
+                pos: {x: 10, y: -7, z: -10} 
+            },
+            { 
+                id: 4, 
+                name: "Mes 5: Recargando Energía Solar 🔋", 
+                color: 0xffd700, 
+                image: "./image/img5.png", 
+                desc: "Cuando la distancia pesa, recuerdo toda la fuerza que me has dado. Eres mi recarga de energía diaria, mi razón para seguir brillando. Este amor es mi combustible para superar cualquier desafío que se interponga. 💫", 
+                pos: {x: 15, y: 8, z: -3} 
+            },
+            { 
+                id: 5, 
+                name: "Mes 6: Horizonte de Sucesos 💖", 
+                color: 0xf08080, 
+                image: "./image/img6.jpg", 
+                desc: "Medio año de viaje. Juntos hemos superado la diferencia horaria, las ausencias, los momentos difíciles y la distancia. Cada obstáculo solo ha probado que nuestro amor es **real e imparable**. Hemos construido una base sólida para que nuestro próximo capítulo sea eterno. ¡Sigamos conquistando este universo juntos! 🤝", 
+                pos: {x: 20, y: -2, z: -18} 
+            }
+        ];
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        
+        camera.position.z = 12; 
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.getElementById('world').appendChild(renderer.domElement);
+
+        scene.fog = new THREE.FogExp2(0x050510, 0.02); 
+        const ambientLight = new THREE.AmbientLight(0x4040a0, 0.8); 
+        scene.add(ambientLight);
+        const pointLight = new THREE.PointLight(0xffffff, 0.5, 50);
+        pointLight.position.set(10, 10, 10);
+        scene.add(pointLight);
+
+        const starsGeo = new THREE.BufferGeometry();
+        const starsCount = 10000; 
+        const starsPos = new Float32Array(starsCount * 3);
+        const sizes = new Float32Array(starsCount);
+        for(let i=0; i<starsCount*3; i+=3) {
+            starsPos[i] = (Math.random() - 0.5) * 600; 
+            starsPos[i+1] = (Math.random() - 0.5) * 600;
+            starsPos[i+2] = (Math.random() - 0.5) * 600;
+            sizes[i/3] = Math.random() > 0.9 ? 1 : 0.2; 
+        }
+        starsGeo.setAttribute('position', new THREE.BufferAttribute(starsPos, 3));
+        starsGeo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+        const starsMat = new THREE.PointsMaterial({ size: 0.5, color: 0xffffff, transparent: true, opacity: 0.8, sizeAttenuation: true });
+        const starField = new THREE.Points(starsGeo, starsMat);
+        scene.add(starField);
+        
+        const cometGeometry = new THREE.DodecahedronGeometry(0.3, 0); 
+        const cometMaterial = new THREE.MeshBasicMaterial({ color: 0xffa500, emissive: 0xffa500, emissiveIntensity: 2 });
+        const comet = new THREE.Mesh(cometGeometry, cometMaterial);
+        scene.add(comet);
+
+        const cometTrailGeo = new THREE.BufferGeometry();
+        const trailCount = 50;
+        const trailPositions = new Float32Array(trailCount * 3);
+        cometTrailGeo.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+        const cometTrailMat = new THREE.PointsMaterial({ color: 0xffddaa, size: 0.1, transparent: true, opacity: 0.6 });
+        const cometTrail = new THREE.Points(cometTrailGeo, cometTrailMat);
+        scene.add(cometTrail);
+
+        function updateCometTrail() {
+            const positions = cometTrailGeo.attributes.position.array;
+            for (let i = trailCount - 1; i > 0; i--) {
+                positions[i * 3] = positions[(i - 1) * 3];
+                positions[i * 3 + 1] = positions[(i - 1) * 3 + 1];
+                positions[i * 3 + 2] = positions[(i - 1) * 3 + 2];
+            }
+            positions[0] = comet.position.x + (Math.random() - 0.5) * 0.5;
+            positions[1] = comet.position.y + (Math.random() - 0.5) * 0.5;
+            positions[2] = comet.position.z + (Math.random() - 0.5) * 0.5;
+            cometTrailGeo.attributes.position.needsUpdate = true;
+        }
+
+        function launchComet() {
+            comet.position.set(-60, Math.random() * 40 - 20, Math.random() * 20 - 10);
+            
+            gsap.to(comet.position, {
+                duration: 15 + Math.random() * 10, 
+                x: 60,
+                y: Math.random() * 40 - 20,
+                z: Math.random() * 20 - 10,
+                ease: "none",
+                delay: Math.random() * 10, 
+                onComplete: launchComet 
+            });
+            
+             for (let i = 0; i < trailCount * 3; i++) {
+                 cometTrailGeo.attributes.position.array[i] = comet.position[i % 3];
+             }
+             cometTrailGeo.attributes.position.needsUpdate = true;
+        }
+        launchComet();
+
+        const spaceshipGeometry = new THREE.OctahedronGeometry(0.8, 0); 
+        const spaceshipMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x88ccff, 
+            emissive: 0x88ccff, 
+            emissiveIntensity: 0.8, 
+            flatShading: true 
+        });
+        const spaceship = new THREE.Mesh(spaceshipGeometry, spaceshipMaterial);
+        scene.add(spaceship);
+        spaceship.visible = false; 
+
+        function launchSpaceship() {
+            spaceship.visible = true;
+            spaceship.position.set(-80, Math.random() * 50 - 25, Math.random() * 30 - 15);
+            spaceship.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+
+            gsap.to(spaceship.position, {
+                duration: 20 + Math.random() * 10,
+                x: 80,
+                y: Math.random() * 50 - 25,
+                z: Math.random() * 30 - 15,
+                ease: "power2.inOut",
+                onComplete: () => {
+                    spaceship.visible = false;
+                    setTimeout(launchSpaceship, 15000 + Math.random() * 15000); 
+                }
+            });
+            gsap.to(spaceship.rotation, {
+                duration: 10,
+                x: spaceship.rotation.x + Math.PI * 4, 
+                y: spaceship.rotation.y + Math.PI * 6, 
+                repeat: -1,
+                ease: "none"
+            });
+        }
+        setTimeout(launchSpaceship, 5000 + Math.random() * 10000); 
+
+
+        const planets = [];
+        missionData.forEach(data => {
+            const geometry = new THREE.IcosahedronGeometry(1.2, 1); 
+            const material = new THREE.MeshStandardMaterial({ 
+                color: data.color, 
+                roughness: 0.5,
+                emissive: data.color, 
+                emissiveIntensity: 0.5, 
+                wireframe: false
+            });
+            const planet = new THREE.Mesh(geometry, material);
+            
+            planet.position.set(data.pos.x, data.pos.y, data.pos.z);
+            planet.userData = { id: data.id, info: data, isPlanet: true };
+            
+            const ringGeo = new THREE.TorusGeometry(1.8, 0.05, 16, 100);
+            const ringMat = new THREE.MeshBasicMaterial({ color: data.color, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = Math.PI / 2 + (Math.random() * 0.5);
+            planet.add(ring);
+
+            planets.push(planet);
+            scene.add(planet);
+        });
+
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let currentHover = null;
+        let isZoomedIn = false;
+        let initialCameraFov = camera.fov; 
+        let initialCameraAspect = camera.aspect; 
+        let initialCameraZ = camera.position.z; 
+
+        const modal = document.getElementById('mission-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalDesc = document.getElementById('modal-desc');
+        const modalImage = document.getElementById('modal-image');
+        const closeBtn = document.getElementById('close-modal');
+        
+        const keypadPuzzle = document.getElementById('keypad-puzzle');
+        const codeDisplay = document.getElementById('code-display');
+        const revealedMemory = document.getElementById('revealed-memory');
+        const keypadContainer = document.getElementById('keypad-container');
+        let currentCode = "";
+        let currentPlanetData = null; 
+        
+        const clickSound = new Howl({ src: ['./sfx/button-click.mp3'], volume: 0.5 }); 
+        const correctSound = new Howl({ src: ['./sfx/correct.mp3'], volume: 0.6 });
+        const errorSound = new Howl({ src: ['./sfx/error.mp3'], volume: 0.6 });
+        const hoverSound = new Howl({ src: ['./sfx/hover.mp3'], volume: 0.3 }); 
+
+
+        window.addEventListener('mousemove', (event) => {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        window.addEventListener('click', onMouseClick);
+        closeBtn.addEventListener('click', zoomOut);
+        
+        keypadContainer.addEventListener('click', onKeypadClick);
+
+        function onKeypadClick(event) {
+            const key = event.target.getAttribute('data-key');
+            if (!key || modal.classList.contains('active') === false) return; 
+
+            clickSound.play(); 
+
+            if (key === 'clear') {
+                currentCode = "";
+                codeDisplay.innerText = currentCode;
+                keypadPuzzle.classList.remove('error');
+            } else if (key === 'enter') {
+                checkCode();
+            } else if (currentCode.length < currentPlanetData.secretCode.length) {
+                currentCode += key;
+                codeDisplay.innerText = currentCode.split('').map(c => '*').join(''); 
+                keypadPuzzle.classList.remove('error');
+            }
+        }
+
+        function checkCode() {
+            if (currentCode === currentPlanetData.secretCode) {
+                correctSound.play();
+                keypadPuzzle.style.opacity = '0';
+                setTimeout(() => {
+                    keypadPuzzle.style.display = 'none';
+                    revealedMemory.classList.add('active');
+                }, 500);
+            } else {
+                errorSound.play();
+                keypadPuzzle.classList.add('error');
+                currentCode = "";
+                codeDisplay.innerText = "ERROR";
+                setTimeout(() => {
+                    codeDisplay.innerText = "";
+                    keypadPuzzle.classList.remove('error');
+                }, 1000);
+            }
+        }
+
+        function onMouseClick(event) {
+            if (gsap.isTweening(camera.position)) { 
+                return;
+            }
+
+            if (event.target === closeBtn) {
+                return; 
+            }
+
+            if (modal.classList.contains('active')) {
+                if(event.target.closest('#mission-modal')) return;
+            }
+
+            if (window.bgMusic && window.bgMusic.paused) {
+                 window.bgMusic.play().catch(e => console.log("User interaction required for autoplay."));
+            }
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(planets);
+
+            if (intersects.length > 0 && !isZoomedIn) {
+                const targetPlanet = intersects[0].object;
+                zoomIn(targetPlanet);
+            } else if (isZoomedIn && intersects.length === 0) {
+                zoomOut();
+            }
+        }
+
+        function zoomIn(targetPlanet) {
+            isZoomedIn = true;
+            document.body.style.cursor = 'default';
+            const targetPos = targetPlanet.position;
+            
+            const offset = new THREE.Vector3(0, 0, 3.5); 
+            const cameraEndPos = targetPos.clone().add(offset);
+
+            gsap.to(camera.position, {
+                duration: 1.8,
+                x: cameraEndPos.x, y: cameraEndPos.y, z: cameraEndPos.z,
+                ease: "power3.inOut",
+                onComplete: () => openModal(targetPlanet.userData.info)
+            });
+
+             gsap.to(camera.rotation, {
+                 duration: 1.8,
+                 onUpdate: function() { camera.lookAt(targetPos); }
+             });
+        }
+
+        function zoomOut() {
+            modal.classList.remove('active');
+            isZoomedIn = false;
+            
+            keypadPuzzle.style.display = 'none';
+            keypadPuzzle.style.opacity = '1';
+            revealedMemory.classList.remove('active');
+            currentCode = "";
+            codeDisplay.innerText = "";
+            keypadPuzzle.classList.remove('error');
+
+            gsap.to(camera.position, {
+                duration: 1.5,
+                x: 0, 
+                y: 0, 
+                z: initialCameraZ, 
+                ease: "power3.inOut",
+                onUpdate: function() { camera.lookAt(new THREE.Vector3(0,0,0)); } 
+            });
+             gsap.to(camera, {
+                 duration: 1.5,
+                 fov: initialCameraFov, 
+                 ease: "power3.inOut",
+                 onUpdate: () => camera.updateProjectionMatrix() 
+             });
+        }
+        
+        function openModal(data) {
+            currentPlanetData = data;
+            modalTitle.innerText = data.name;
+            modalTitle.style.color = '#' + data.color.toString(16).padStart(6, '0');
+            modalImage.src = data.image; 
+            modalDesc.innerText = data.desc;
+            
+            if (data.isPuzzle) { 
+                keypadPuzzle.style.display = 'flex'; 
+                revealedMemory.classList.remove('active'); 
+            } else { 
+                keypadPuzzle.style.display = 'none'; 
+                revealedMemory.classList.add('active'); 
+            }
+            modal.classList.add('active');
+        }
+
+        function onWindowResize() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const aspect = width / height;
+
+            camera.aspect = aspect;
+
+            if (aspect > 1.5) { 
+                camera.fov = 75; 
+                initialCameraZ = 12; 
+            } else if (aspect > 0.8) { 
+                 camera.fov = 85; 
+                 initialCameraZ = 15; 
+            } else { 
+                camera.fov = 95; 
+                initialCameraZ = 18; 
+            }
+            
+            if (!isZoomedIn) {
+                 camera.position.z = initialCameraZ;
+                 camera.lookAt(new THREE.Vector3(0,0,0));
+            }
+            
+            initialCameraFov = camera.fov; 
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        }
+
+        window.bgMusic = document.getElementById('background-music');
+
+        document.addEventListener('click', function musicStarter() {
+            if (window.bgMusic.paused) {
+                window.bgMusic.play().catch(e => console.log("Autoplay blocked, waiting for user interaction."));
+            }
+            document.removeEventListener('click', musicStarter);
+        }, { once: true });
+
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            updateCometTrail(); 
+            
+            starField.rotation.y -= 0.0005; 
+            starField.rotation.x -= 0.0001; 
+            
+            const pulseSpeed = 0.05; 
+            planets.forEach((p, index) => {
+                const intensity = 0.5 + 0.7 * (Math.sin(Date.now() * 0.002 + index * pulseSpeed) + 1) / 2;
+                p.material.emissiveIntensity = intensity;
+                p.rotation.y += 0.005; 
+            });
+
+            if (!isZoomedIn) {
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(planets);
+
+                if (intersects.length > 0) {
+                    if (currentHover !== intersects[0].object) {
+                        if (currentHover) gsap.to(currentHover.scale, {duration:0.3, x:1, y:1, z:1});
+                        currentHover = intersects[0].object;
+                        document.body.style.cursor = 'pointer';
+                        gsap.to(currentHover.scale, {duration:0.3, x:1.3, y:1.3, z:1.3});
+                        
+                        hoverSound.play(); 
+                        
+                        const ringMat = currentHover.children[0].material;
+                        gsap.to(ringMat, { duration: 0.1, opacity: 1, repeat: 1, yoyo: true, ease: "power1.inOut" }); 
+                    }
+                } else {
+                    if (currentHover) {
+                        gsap.to(currentHover.scale, {duration:0.3, x:1, y:1, z:1});
+                        currentHover = null;
+                        document.body.style.cursor = 'default';
+                    }
+                }
+            }
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', onWindowResize);
+        
+        onWindowResize(); 
+        
+        animate();
+    </script>
+</body>
+</html>
